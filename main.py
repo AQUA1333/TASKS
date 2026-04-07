@@ -40,8 +40,8 @@ class AbstractAccount(ABC):
     def __init__(self, owner, balance=0.0, account_id=None):
         self.account_id = account_id
         self.owner = owner
-        self._balance = float(balance)  # 4. Защищенный баланс
-        self.status = Status.ACTIVE  # 5. По умолчанию активен
+        self._balance = float(balance)  # Защищенный баланс
+        self.status = Status.ACTIVE  # По умолчанию активен
 
     @abstractmethod
     def deposit(self, amount):
