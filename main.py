@@ -1,119 +1,77 @@
-from abc import ABC, abstractmethod
-import random
-from enum import Enum
+import datetime
 
-class BankError(Exception):
-    """Базовый класс для ошибок банка"""
-    pass
+class Client:
+    def __init__(self, full_name, client_id, status, contacts, age):
+        if age < 18:
+            raise ValueError("Клиент должен быть совершеннолетним (18+)")
 
-class AccountFrozenError(BankError):
-    """Ошибка: счет заморожен"""
-    pass
-
-
-class AccountClosedError(BankError):
-    """Ошибка: счет закрыт"""
-    pass
-
-class InvalidOperationError(BankError):
-    """Ошибка: некорректная операция (например, отрицательная сумма)"""
-    pass
-
-class InsufficientFundsError(BankError):
-    """Ошибка: недостаточно средств"""
-    pass
-
-class Status(Enum):
-    ACTIVE = "активный"
-    FROZEN = "замороженный"
-    CLOSED = "закрытый"
+        self.full_name = full_name
+        self.client_id = client_id
+        self.status = status
+        self.contacts = contacts
+        self.accounts = []
+        self.failed_attempts = 0
+        self.is_blocked = False
 
 
-class Currency(Enum):
-    RUB = "RUB"
-    USD = "USD"
-    EUR = "EUR"
-    KZT = "KZT"
-    CNY = "CNY"
+class Bank:
+    def __init__(self):
+        self.clients = {}
 
-class AbstractAccount(ABC):
-    def __init__(self, owner, balance=0.0, account_id=None):
-        self.account_id = account_id
-        self.owner = owner
-        self._balance = float(balance)  # 4. Защищенный баланс
-        self.status = Status.ACTIVE  # 5. По умолчанию активен
+    def add_client(self, client):
+        self.clients[client.client_id] = client
+        print(f"Клиент {client.full_name} успешно добавлен.")
 
-    @abstractmethod
-    def deposit(self, amount):
-        pass
+    def authenticate_client(self, client_id):
+        client = self.clients.get(client_id)
+        if not client:
+            print("Клиент не найден.")
+            return False
 
-    @abstractmethod
-    def withdraw(self, amount):
-        pass
+        if client.is_blocked:
+            print("Доступ запрещен: аккаунт заблокирован.")
+            return False
 
-    @abstractmethod
-    def get_account_info(self):
-        pass
+        now = datetime.datetime.now().hour
+        if 0 <= now < 5:
+            print("Вход в систему запрещен в ночное время (00:00 - 05:00).")
+            return False
 
-class BankAccount(AbstractAccount):
-    def __init__(self, owner, balance=0.0, account_id=None, currency=Currency.RUB):
-        # 11. Автоматическая генерация короткого айди, если он не задан
-        if account_id is None:
-            account_id = str(random.randint(10000000, 99999999))
+        password = input(f"Введите пароль для {client.full_name}: ")
+        if password == "1234":
+            client.failed_attempts = 0
+            print("Успешный вход.")
+            return True
+        else:
+            client.failed_attempts += 1
+            print(f"Неверный пароль! Попыток: {client.failed_attempts}")
+            if client.failed_attempts >= 3:
+                client.is_blocked = True
+                print("Аккаунт заблокирован из-за превышения попыток входа.")
+            return False
 
-        super().__init__(owner, balance, account_id)
-        self.currency = currency  # 12. Валюта
+    def open_account(self, client_id, account_number):
+        if client_id in self.clients:
+            self.clients[client_id].accounts.append(account_number)
+            print(f"Счет {account_number} открыт для ID {client_id}.")
 
-    def _check_transaction(self, amount):
-        if self.status == Status.FROZEN:
-            raise AccountFrozenError("Операция невозможна: счет заморожен.")
-        if self.status == Status.CLOSED:
-            raise AccountClosedError("Операция невозможна: счет закрыт.")
-        if amount <= 0:
-            raise InvalidOperationError("Сумма должна быть положительной.")
+    def process_transaction(self, amount):
+        if amount > 100000:
+            print(f"ВНИМАНИЕ: Операция на сумму {amount} помечена как подозрительная!")
+        else:
+            print(f"Операция на сумму {amount} выполнена успешно.")
 
-    def deposit(self, amount):
-        self._check_transaction(amount)
-        self._balance += amount
-        print(f"Пополнение: +{amount} {self.currency.value}")
+my_bank = Bank()
 
-    def withdraw(self, amount):
-        self._check_transaction(amount)
-        if amount > self._balance:
-            raise InsufficientFundsError("Недостаточно средств на балансе.")
-        self._balance -= amount
-        print(f"Снятие: -{amount} {self.currency.value}")
+try:
+    c1 = Client("Иван Иванов", "ID001", "Active", "ivan@mail.com", 25)
+    my_bank.add_client(c1)
+except ValueError as e:
+    print(e)
 
-    def get_account_info(self):
-        return f"Счет {self.account_id} ({self.owner}): {self._balance} {self.currency.value}"
+my_bank.open_account("ID001", "ACC-777")
 
-    def __str__(self):
-        last_4 = self.account_id[-4:]  # Последние 4 цифры
-        return (f"--- Информация о счете ---\n"
-                f"Тип: BankAccount\n"
-                f"Клиент: {self.owner}\n"
-                f"Номер: ****{last_4}\n"
-                f"Статус: {self.status.value}\n"
-                f"Баланс: {self._balance} {self.currency.value}\n")
+for _ in range(3):
+    my_bank.authenticate_client("ID001")
 
-
-if __name__ == "__main__":
-    try:
-        acc1 = BankAccount("Иван Иванов", 1000, currency=Currency.USD)
-        acc2 = BankAccount("Петр Петров", 500)
-        acc2.status = Status.FROZEN
-
-        print(acc1)
-        print(acc2)
-
-        acc1.deposit(500)
-        acc1.withdraw(200)
-        print(f"Новый баланс Ивана: {acc1.get_account_info()}")
-
-        print("\nПопытка снять деньги с замороженного счета...")
-        acc2.withdraw(100)
-
-    except BankError as e:
-        print(f"Ошибка Банка: {e}")
-    except Exception as e:
-        print(f"Непредвиденная ошибка: {e}")
+my_bank.process_transaction(150000)
