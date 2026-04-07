@@ -57,12 +57,12 @@ class AbstractAccount(ABC):
 
 class BankAccount(AbstractAccount):
     def __init__(self, owner, balance=0.0, account_id=None, currency=Currency.RUB):
-        # 11. Автоматическая генерация короткого айди, если он не задан
+        # Автоматическая генерация короткого айди, если он не задан
         if account_id is None:
             account_id = str(random.randint(10000000, 99999999))
 
         super().__init__(owner, balance, account_id)
-        self.currency = currency  # 12. Валюта
+        self.currency = currency  # Валюта
 
     def _check_transaction(self, amount):
         if self.status == Status.FROZEN:
